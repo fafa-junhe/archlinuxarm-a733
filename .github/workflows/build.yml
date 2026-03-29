@@ -82,7 +82,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed
           pacman -S --noconfirm --needed \
-            sudo git \
+            base-devel sudo git \
             aarch64-linux-gnu-gcc \
             bc cpio dtc kmod python
 
@@ -157,7 +157,7 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed
           pacman -S --noconfirm --needed \
-            sudo git wget xz \
+            base-devel sudo git wget xz \
             bc dtc python swig util-linux dos2unix
 
       # ── Download ARM GNU Toolchain from developer.arm.com ─────────────────
