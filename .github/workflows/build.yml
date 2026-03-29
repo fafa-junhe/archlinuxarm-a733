@@ -158,7 +158,7 @@ jobs:
           pacman -Syu --noconfirm --needed
           pacman -S --noconfirm --needed \
             base-devel sudo git wget xz \
-            bc dtc python swig util-linux dos2unix
+            bc dtc python swig util-linux dos2unix xxd
 
       # ── Download ARM GNU Toolchain from developer.arm.com ─────────────────
       #   Provides arm-none-linux-gnueabihf-* binaries.
