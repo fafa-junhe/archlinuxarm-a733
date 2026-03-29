@@ -28,6 +28,7 @@ makedepends=(
     'util-linux'
     'dos2unix'
     'xxd'
+    'gptfdisk'
 )
 provides=('uboot-radxa-cubie-a7a')
 conflicts=('uboot-radxa-cubie-a7a')
