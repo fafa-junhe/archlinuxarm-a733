@@ -240,20 +240,40 @@ jobs:
           if-no-files-found: error
 
   # ============================================================================
-  # Job 3 — Attach packages to GitHub Release
+  # Job 3 — Create repository database and attach packages to GitHub Release
   #
-  #   Runs only when a GitHub Release is published.
-  #   Depends on both build jobs succeeding.
+  #   Runs after successful builds on push/PR/release events.
+  #   Creates a pacman repository database using repo-add.
+  #   If no release exists for the current tag, creates one automatically.
   # ============================================================================
   release:
-    name: "Upload Release Assets"
-    if: github.event_name == 'release' && github.event.action == 'published'
+    name: "Upload Release Assets & Repository"
     needs: [build-kernel, build-uboot]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
+    container:
+      image: archlinux:latest
+
+    defaults:
+      run:
+        shell: bash
+
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure pacman for CI
+        run: |
+          sed -i 's/SigLevel    = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
+          sed -i 's/SigLevel = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
+
+      - name: Install required tools
+        run: |
+          pacman -S --noconfirm --needed libalpm
+          pacman -S --noconfirm --needed gh
+
       - name: Download kernel packages
         uses: actions/download-artifact@v4
         with:
@@ -269,7 +289,75 @@ jobs:
       - name: List packages to be released
         run: ls -lh packages/
 
-      - name: Attach packages to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: packages/*.pkg.tar.zst
+      - name: Create pacman repository database
+        run: |
+          REPO_NAME="radxa-cubie-a7a"
+          DB_PATH="$GITHUB_WORKSPACE/${REPO_NAME}.db.tar.gz"
+          
+          cd packages/
+          
+          echo "Creating repository database with packages..."
+          repo-add --new "${DB_PATH}" *.pkg.tar.zst
+          
+          echo "--- Repository database created ---"
+          ls -lh "${DB_PATH}"
+
+      - name: Determine release tag
+        id: release_info
+        run: |
+          if [ "${{ github.event_name }}" == "release" ]; then
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" == "push" ]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+            if [ "$TAG_NAME" == "$GITHUB_REF" ] || [ -z "$TAG_NAME" ]; then
+              TAG_NAME="v$(date +%Y.%m.%d)-${GITHUB_SHA:0:8}"
+            fi
+          else
+            TAG_NAME="v$(date +%Y.%m.%d)-${GITHUB_SHA:0:8}"
+          fi
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Release tag: ${TAG_NAME}"
+
+      - name: Check if release exists
+        id: check_release
+        run: |
+          TAG="${{ steps.release_info.outputs.TAG_NAME }}"
+          if gh release view "${TAG}" --repo "$GITHUB_REPOSITORY" &>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release '${TAG}' already exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release '${TAG}' does not exist, will create"
+          fi
+
+      - name: Create release if not exists
+        if: steps.check_release.outputs.exists == 'false'
+        env:
+          TAG: ${{ steps.release_info.outputs.TAG_NAME }}
+        run: |
+          gh release create "${TAG}" \
+            --title "Release ${TAG}" \
+            --notes "Automated release with pacman repository database.
+            
+            ## Installation
+            Add to your /etc/pacman.conf:
+            ```
+            [radxa-cubie-a7a]
+            Server=$repoUrl/$arch
+            ```
+            
+            Then run: pacman -Syu" \
+            --repo "$GITHUB_REPOSITORY"
+
+      - name: Upload packages and repository database to GitHub Release
+        env:
+          TAG: ${{ steps.release_info.outputs.TAG_NAME }}
+        run: |
+          gh release upload "${TAG}" \
+            packages/*.pkg.tar.zst \
+            radxa-cubie-a7a.db.tar.gz \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+          
+          echo "--- Release assets uploaded ---"
+          gh release view "${TAG}" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | "\(.name) (\(.size) bytes)"'
