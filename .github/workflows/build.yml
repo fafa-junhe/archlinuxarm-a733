@@ -271,7 +271,8 @@ jobs:
 
       - name: Install required tools
         run: |
-          pacman -S --noconfirm --needed libalpm github-cli
+          pacman -Sy --noconfirm
+          pacman -S --noconfirm --needed github-cli
 
       - name: Download kernel packages
         uses: actions/download-artifact@v4
