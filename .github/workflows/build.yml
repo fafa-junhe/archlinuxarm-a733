@@ -1,0 +1,227 @@
+# =============================================================================
+# Build workflow for Arch Linux ARM packages — Radxa Cubie A7A (Allwinner A733)
+#
+# Architecture constraints (IMPORTANT):
+#   linux-a733          PKGBUILD arch=(aarch64)
+#                       → native compilation; MUST run on aarch64 hardware
+#
+#   uboot-radxa-cubie-a7a  PKGBUILD arch=(any)
+#                       → Allwinner packaging tools are x86_64-only binaries;
+#                         building on ARM64 WILL fail
+#                       → MUST run on x86_64
+#
+# Runner / container mapping:
+#   build-kernel  →  ubuntu-24.04-arm  +  lopsided98/archlinux-aarch64 (Arch Linux ARM)
+#   build-uboot   →  ubuntu-latest     +  archlinux:latest             (Arch Linux x86_64)
+# =============================================================================
+
+name: Build Packages
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "linux-radxa-cubie-a7a-pkg/**"
+      - "uboot-radxa-cubie-a7a-pkg/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "linux-radxa-cubie-a7a-pkg/**"
+      - "uboot-radxa-cubie-a7a-pkg/**"
+      - ".github/workflows/build.yml"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# xpack RISC-V GCC version used by the U-Boot PKGBUILD.
+# Update this when a newer release is available:
+# https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases
+env:
+  XPACK_RISCV_GCC_VERSION: "14.2.0-2"
+
+jobs:
+  # ============================================================================
+  # Job 1 — Linux Kernel
+  #
+  #   PKGBUILD arch=(aarch64)
+  #   Native compilation (no CROSS_COMPILE set in PKGBUILD build()).
+  #   Runner: ubuntu-24.04-arm  (GitHub-hosted ARM64 hardware)
+  #   Container: lopsided98/archlinux-aarch64 — Arch Linux ARM on aarch64
+  # ============================================================================
+  build-kernel:
+    name: "Linux Kernel [aarch64]"
+    runs-on: ubuntu-24.04-arm
+
+    container:
+      image: lopsided98/archlinux-aarch64:latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Arch Linux ARM uses its own signing keys ──────────────────────────
+      - name: Initialise pacman keyring
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinuxarm
+
+      # ── System update + all makedepends from PKGBUILD ─────────────────────
+      - name: Upgrade system and install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed
+          pacman -S --noconfirm --needed \
+            sudo git \
+            bc cpio dtc kmod python
+
+      # ── makepkg refuses to run as root; create an unprivileged user ───────
+      - name: Create non-root build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      # ── Build the package (runs as 'builder'; -H sets HOME correctly) ─────
+      - name: Build linux-a733 packages
+        working-directory: linux-radxa-cubie-a7a-pkg
+        run: sudo -u builder -H makepkg -s --noconfirm --noprogressbar
+
+      # ── Collect *.pkg.tar.zst artifacts ───────────────────────────────────
+      - name: Upload kernel package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-kernel-packages
+          path: linux-radxa-cubie-a7a-pkg/*.pkg.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  # ============================================================================
+  # Job 2 — U-Boot Bootloader
+  #
+  #   Allwinner packaging tools (e.g. dragonsecboot, aultls) are x86_64 ELF
+  #   binaries — they will segfault / error on ARM64.
+  #   Runner: ubuntu-latest  (GitHub-hosted x86_64)
+  #   Container: archlinux:latest — Arch Linux x86_64
+  #
+  #   Extra toolchain required (hardcoded path in PKGBUILD):
+  #     CROSS_COMPILE=arm-linux-gnueabihf-         (pacman: arm-linux-gnueabihf-gcc)
+  #     RISCV_CROSS_COMPILE=/opt/xpack/riscv-none-elf-gcc/bin/riscv-none-elf-
+  #                                                (installed from xpack release)
+  # ============================================================================
+  build-uboot:
+    name: "U-Boot [x86_64]"
+    runs-on: ubuntu-latest
+
+    container:
+      image: archlinux:latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Arch Linux x86_64 keyring ─────────────────────────────────────────
+      - name: Initialise pacman keyring
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+
+      # ── System update + all makedepends from PKGBUILD ─────────────────────
+      #   arm-linux-gnueabihf-gcc  →  provides arm-linux-gnueabihf- toolchain
+      - name: Upgrade system and install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed
+          pacman -S --noconfirm --needed \
+            sudo git wget \
+            bc dtc python swig util-linux dos2unix \
+            arm-linux-gnueabihf-gcc
+
+      # ── Install xpack RISC-V GCC to /opt/xpack/riscv-none-elf-gcc ─────────
+      #   The PKGBUILD hardcodes this exact path:
+      #     export RISCV_CROSS_COMPILE=/opt/xpack/riscv-none-elf-gcc/bin/riscv-none-elf-
+      - name: Install xpack RISC-V GCC toolchain
+        run: |
+          TARBALL="xpack-riscv-none-elf-gcc-${XPACK_RISCV_GCC_VERSION}-linux-x64.tar.gz"
+          URL="https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v${XPACK_RISCV_GCC_VERSION}/${TARBALL}"
+          echo "Downloading ${URL}"
+          wget -q "${URL}" -O /tmp/riscv-gcc.tar.gz
+          mkdir -p /opt/xpack/riscv-none-elf-gcc
+          tar -xf /tmp/riscv-gcc.tar.gz \
+            -C /opt/xpack/riscv-none-elf-gcc \
+            --strip-components=1
+          echo "--- installed riscv-none-elf-gcc ---"
+          /opt/xpack/riscv-none-elf-gcc/bin/riscv-none-elf-gcc --version
+
+      # ── Verify x86_64 architecture (belt-and-suspenders guard) ───────────
+      - name: Assert x86_64 runner
+        run: |
+          ARCH="$(uname -m)"
+          echo "Runner architecture: ${ARCH}"
+          if [ "${ARCH}" != "x86_64" ]; then
+            echo "ERROR: U-Boot MUST be built on x86_64 (Allwinner tools are x86_64-only)."
+            echo "       Current arch: ${ARCH}"
+            exit 1
+          fi
+
+      # ── makepkg refuses to run as root; create an unprivileged user ───────
+      - name: Create non-root build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      # ── Build the package ─────────────────────────────────────────────────
+      - name: Build uboot-radxa-cubie-a7a package
+        working-directory: uboot-radxa-cubie-a7a-pkg
+        run: sudo -u builder -H makepkg -s --noconfirm --noprogressbar
+
+      # ── Collect *.pkg.tar.zst artifacts ───────────────────────────────────
+      - name: Upload U-Boot package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: uboot-packages
+          path: uboot-radxa-cubie-a7a-pkg/*.pkg.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  # ============================================================================
+  # Job 3 — Attach packages to GitHub Release
+  #
+  #   Runs only when a GitHub Release is published.
+  #   Depends on both build jobs succeeding.
+  # ============================================================================
+  release:
+    name: "Upload Release Assets"
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: [build-kernel, build-uboot]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download kernel packages
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-kernel-packages
+          path: packages/
+
+      - name: Download U-Boot packages
+        uses: actions/download-artifact@v4
+        with:
+          name: uboot-packages
+          path: packages/
+
+      - name: List packages to be released
+        run: ls -lh packages/
+
+      - name: Attach packages to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.pkg.tar.zst
