@@ -228,7 +228,7 @@ jobs:
         run: |
           sudo -u builder -H \
             env PATH="/usr/local/bin:/opt/xpack/riscv-none-elf-gcc/bin:$PATH" \
-            makepkg -s --noconfirm --noprogressbar
+            makepkg --nodeps --noconfirm --noprogressbar
 
       # ── Collect *.pkg.tar.zst artifacts ───────────────────────────────────
       - name: Upload U-Boot package artifacts
