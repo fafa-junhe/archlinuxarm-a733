@@ -288,23 +288,21 @@ jobs:
       - name: Create pacman repository database
         run: |
           REPO_NAME="radxa-cubie-a7a"
-          DB_PATH="packages/${REPO_NAME}.db.tar.gz"
-          
-          cd packages/
+          DB_PATH="${GITHUB_WORKSPACE}/${REPO_NAME}.db.tar.gz"
           
           echo "Creating repository database with packages..."
-          repo-add --new "${DB_PATH}" *.pkg.tar.zst
+          repo-add --new "${DB_PATH}" packages/*.pkg.tar.zst
           
           echo "--- Repository database created ---"
-          ls -lh *.db.tar.gz
+          ls -lh "${GITHUB_WORKSPACE}"/*.db.tar.gz
 
       - name: Upload repository database artifact
         uses: actions/upload-artifact@v4
         with:
           name: pacman-repo-db
           path: |
-            packages/*.db.tar.gz
             packages/*.pkg.tar.zst
+            *.db.tar.gz
 
   # ============================================================================
   # Job 4 — Attach packages to GitHub Release
