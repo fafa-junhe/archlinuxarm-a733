@@ -10,21 +10,21 @@ arch=(any)
 url="https://github.com/radxa-pkg/radxa-system-config"
 license=(GPL-3.0-or-later)
 depends=(
-  xrandr
   xorg-xrandr
 )
 optdepends=(
-  sddm: for X authentication
+  sddm
 )
 groups=(radxa-cubie-a7a)
+install=radxa-system-config-allwinner.install
 
-_commit=5c2f30b
+_commit=2ef5a97
 source=("${_pkgname}::git+https://github.com/radxa-pkg/${_pkgname}.git#commit=${_commit}")
 sha256sums=('SKIP')
 
 pkgver() {
   cd "${srcdir}/${_pkgname}"
-  git describe --tags --long 2>/dev/null | sed 's/^v//' || echo "1.0.1-1"
+  git describe --tags 2>/dev/null | sed 's/^v//' || echo "0.6.32"
 }
 
 prepare() {
@@ -34,8 +34,6 @@ prepare() {
 
 package() {
   cd "${srcdir}/${_pkgname}"
-
-  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.install" "${pkgdir}/PKGBUILD.install" 2>/dev/null || true
 
   install -Dm755 "${srcdir}/${_pkgname}/radxa-system-config-allwinner/usr/bin/hdmi-hotplug-fix" \
     "${pkgdir}/usr/bin/hdmi-hotplug-fix"
