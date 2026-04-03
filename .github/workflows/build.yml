@@ -268,9 +268,7 @@ jobs:
           sed -i 's/SigLevel = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
 
       - name: Install required tools
-        run: |
-          pacman -Sy --noconfirm
-          pacman -S --noconfirm --needed libalpm
+        run: pacman -Sy --noconfirm
 
       - name: Download kernel packages
         uses: actions/download-artifact@v4
