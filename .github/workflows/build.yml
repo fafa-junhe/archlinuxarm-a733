@@ -97,9 +97,11 @@ jobs:
       #   --ignorearch  : override arch=(aarch64) check on x86_64 host
       #   ARCH          : tells the kernel build system the target architecture
       #   CROSS_COMPILE : selects the aarch64 cross-toolchain prefix
+      #   CARCH         : overrides host arch so pkg filename is aarch64
       - name: Build linux-a733 packages (cross-compile)
         working-directory: linux-radxa-cubie-a7a-pkg
         run: |
+          sed -i 's/^CARCH=.*/CARCH=aarch64/' /etc/makepkg.conf
           sudo -u builder -H \
             env ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
             makepkg -s --noconfirm --noprogressbar --ignorearch
