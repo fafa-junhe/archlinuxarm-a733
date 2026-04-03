@@ -15,7 +15,7 @@ _bspname=allwinner-bsp-${_bspcommit_full}
 _devicename=allwinner-device-${_devicecommit_full}
 _kernelname=${pkgbase#linux}
 pkgver=5.15.147
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux kernel for Allwinner A733 (Radxa Cubie A7A)'
 url="https://github.com/radxa/kernel"
 arch=(aarch64)
@@ -172,6 +172,11 @@ prepare() {
   scripts/config --disable CONFIG_DRM_NOUVEAU_BACKLIGHT
   scripts/config --set-val CONFIG_DRM_NOUVEAU n
   
+  msg2 "启用 Landlock 支持..."
+  scripts/config --enable CONFIG_SECURITY
+  scripts/config --enable CONFIG_SECURITYFS
+  scripts/config --enable CONFIG_SECURITY_LANDLOCK
+  scripts/config --enable CONFIG_LANDLOCK
   
   make olddefconfig
   
