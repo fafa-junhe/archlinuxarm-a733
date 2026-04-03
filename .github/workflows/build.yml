@@ -252,6 +252,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
 
     container:
       image: archlinux:latest
@@ -335,18 +337,10 @@ jobs:
         env:
           TAG: ${{ steps.release_info.outputs.TAG_NAME }}
         run: |
+          printf 'Automated release with pacman repository database.\n\n## Installation\nAdd to your /etc/pacman.conf:\n```\n[radxa-cubie-a7a]\nServer=\$repoUrl/\$arch\n```\n\nThen run: pacman -Syu' > /tmp/release-notes.txt
           gh release create "${TAG}" \
             --title "Release ${TAG}" \
-            --notes "Automated release with pacman repository database.
-            
-            ## Installation
-            Add to your /etc/pacman.conf:
-            ```
-            [radxa-cubie-a7a]
-            Server=$repoUrl/$arch
-            ```
-            
-            Then run: pacman -Syu" \
+            --notes-file /tmp/release-notes.txt \
             --repo "$GITHUB_REPOSITORY"
 
       - name: Upload packages and repository database to GitHub Release
