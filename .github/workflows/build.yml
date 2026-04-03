@@ -27,12 +27,14 @@ on:
     paths:
       - "linux-radxa-cubie-a7a-pkg/**"
       - "uboot-radxa-cubie-a7a-pkg/**"
+      - "system-config-radxa-cubie-a7a-pkg/**"
       - ".github/workflows/build.yml"
   pull_request:
     branches: [main, master]
     paths:
       - "linux-radxa-cubie-a7a-pkg/**"
       - "uboot-radxa-cubie-a7a-pkg/**"
+      - "system-config-radxa-cubie-a7a-pkg/**"
       - ".github/workflows/build.yml"
   release:
     types: [published]
@@ -242,13 +244,64 @@ jobs:
           if-no-files-found: error
 
   # ============================================================================
-  # Job 3 — Create pacman repository database
+  # Job 3 — System Configuration Package
+  #
+  #   arch=(any), builds on x86_64 natively.
+  #   Runner  : ubuntu-latest  (x86_64)
+  #   Container: archlinux:latest
+  # ============================================================================
+  build-system-config:
+    name: "System Config [x86_64]"
+    runs-on: ubuntu-latest
+
+    container:
+      image: archlinux:latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure pacman for CI
+        run: |
+          sed -i 's/SigLevel    = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
+          sed -i 's/SigLevel = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
+
+      - name: Upgrade system and install build dependencies
+        run: |
+          pacman -Syu --noconfirm --needed
+          pacman -S --noconfirm --needed base-devel sudo git
+
+      - name: Create non-root build user
+        run: |
+          useradd -m builder
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+
+      - name: Build system-config package
+        working-directory: system-config-radxa-cubie-a7a-pkg
+        run: |
+          sudo -u builder -H makepkg -s --noconfirm --noprogressbar
+
+      - name: Upload system-config package artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-config-packages
+          path: system-config-radxa-cubie-a7a-pkg/*.pkg.tar.zst
+          retention-days: 30
+          if-no-files-found: error
+
+  # ============================================================================
+  # Job 4 — Create pacman repository database
   #
   #   Creates a pacman repository database using repo-add.
   # ============================================================================
   create-repo:
     name: "Create Pacman Repository"
-    needs: [build-kernel, build-uboot]
+    needs: [build-kernel, build-uboot, build-system-config]
     runs-on: ubuntu-latest
 
     container:
@@ -280,6 +333,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: uboot-packages
+          path: packages/
+
+      - name: Download system-config packages
+        uses: actions/download-artifact@v4
+        with:
+          name: system-config-packages
           path: packages/
 
       - name: List packages to be released

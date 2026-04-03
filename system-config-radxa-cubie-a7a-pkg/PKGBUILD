@@ -1,0 +1,65 @@
+# radxa-system-config-allwinner: Radxa Cubie A7A system configuration
+# Maintainer: hqu-little-boy <zendpf.wang@gmail.com>
+
+pkgname=radxa-system-config-allwinner
+_pkgname=radxa-system-config
+pkgver=1.0.1
+pkgrel=1
+pkgdesc="Radxa Cubie A7A (Allwinner A733) system configuration - HDMI hotplug fix and udev rules"
+arch=(any)
+url="https://github.com/radxa-pkg/radxa-system-config"
+license=(GPL-3.0-or-later)
+depends=(
+  xrandr
+  xorg-xrandr
+)
+optdepends=(
+  sddm: for X authentication
+)
+groups=(radxa-cubie-a7a)
+
+_commit=5c2f30b
+source=("${_pkgname}::git+https://github.com/radxa-pkg/${_pkgname}.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "${srcdir}/${_pkgname}"
+  git describe --tags --long 2>/dev/null | sed 's/^v//' || echo "1.0.1-1"
+}
+
+prepare() {
+  cd "${srcdir}/${_pkgname}"
+  git submodule update --init --recursive || true
+}
+
+package() {
+  cd "${srcdir}/${_pkgname}"
+
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.install" "${pkgdir}/PKGBUILD.install" 2>/dev/null || true
+
+  install -Dm755 "${srcdir}/${_pkgname}/radxa-system-config-allwinner/usr/bin/hdmi-hotplug-fix" \
+    "${pkgdir}/usr/bin/hdmi-hotplug-fix"
+  install -Dm755 "${srcdir}/${_pkgname}/radxa-system-config-allwinner/usr/bin/hdmi-toggle-once" \
+    "${pkgdir}/usr/bin/hdmi-toggle-once"
+
+  install -Dm644 "${srcdir}/${_pkgname}/radxa-system-config-allwinner/etc/xdg/kde.org/libphonon.conf" \
+    "${pkgdir}/etc/xdg/kde.org/libphonon.conf"
+  install -Dm644 "${srcdir}/${_pkgname}/radxa-system-config-allwinner/usr/share/applications/mimeapps.list" \
+    "${pkgdir}/usr/share/applications/mimeapps.list"
+  install -Dm644 "${srcdir}/${_pkgname}/radxa-system-config-allwinner/usr/share/desktop-base/profiles/xdg-config/xfce4/xfconf/xfce-perchannel-xml/parole.xml" \
+    "${pkgdir}/usr/share/desktop-base/profiles/xdg-config/xfce4/xfconf/xfce-perchannel-xml/parole.xml"
+
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.enable_hid_wakeup.udev" \
+    "${pkgdir}/usr/lib/udev/rules.d/80-radxa-system-config-allwinner.enable_hid_wakeup.rules"
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.hdmi-hotplug.udev" \
+    "${pkgdir}/usr/lib/udev/rules.d/80-radxa-system-config-allwinner.hdmi-hotplug.rules"
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.hdmi-toggle-once.service" \
+    "${pkgdir}/usr/lib/systemd/system/radxa-hdmi-toggle-once.service"
+
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.postinst" \
+    "${pkgdir}/usr/share/radxa-system-config/postinst"
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.postrm" \
+    "${pkgdir}/usr/share/radxa-system-config/postrm"
+  install -Dm644 "${srcdir}/${_pkgname}/debian/radxa-system-config-allwinner.preinst" \
+    "${pkgdir}/usr/share/radxa-system-config/preinst"
+}
