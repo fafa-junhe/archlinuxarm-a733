@@ -91,13 +91,6 @@ prepare() {
   cp -r bsp kernel/bsp
   cp -r device-a733 kernel/device-a733
   
-  msg2 "修改内核 Makefile 添加 bsp_top 变量..."
-  if [ -f kernel/Makefile ]; then
-    if ! grep -q "^BSP_TOP" kernel/Makefile; then
-      sed -i '1i BSP_TOP := $(srcdir)/bsp' kernel/Makefile
-    fi
-  fi
-  
   msg2 "修复 sound 驱动头文件路径..."
   if [ -f kernel/bsp/drivers/sound/adapter/snd_sunxi_pcm_adapter.c ]; then
     sed -i 's|#include "snd_sunxi_log.h"|#include "../platform/snd_sunxi_log.h"|g' \
@@ -163,14 +156,15 @@ prepare() {
   export BSP_TOP="${srcdir}/kernel/bsp"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
   
+  sed -i "1i BSP_TOP := ${BSP_TOP}" Makefile
   
   msg2 "复制配置文件..."
   cp "${srcdir}/config" .config
   
   
   msg2 "清理旧编译文件..."
-  make mrproper || true
-  make clean || true
+  make mrproper ARCH=arm64 || true
+  make clean ARCH=arm64 || true
   
   
   cp "${srcdir}/config" .config
@@ -187,7 +181,7 @@ prepare() {
   scripts/config --enable CONFIG_SECURITY_LANDLOCK
   scripts/config --enable CONFIG_LANDLOCK
   
-  make olddefconfig
+  make ARCH=arm64 BSP_TOP="${BSP_TOP}" olddefconfig
   
   make -s kernelrelease > version
   echo "Prepared $pkgbase version $(<version)"
@@ -199,21 +193,27 @@ build() {
   export ARCH=arm64
   export BSP_TOP="${srcdir}/kernel/bsp"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
+  export CROSS_COMPILE=aarch64-linux-gnu-
+  export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
   
   
   msg2 "清理之前的编译产物..."
-  make clean || true
+  make clean ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- || true
   
   
   find . -name "*.o" -delete 2>/dev/null || true
   find . -name "built-in.a" -delete 2>/dev/null || true
   
-  msg2 "编译内核和模块（本机编译）..."
+  msg2 "编译内核和模块..."
   
-  make ${MAKEFLAGS} Image dtbs modules -j4
+  make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+    BSP_TOP="${BSP_TOP}" \
+    Image dtbs modules -j4
   
   msg2 "编译 aarch64 主机工具（modpost 等）..."
-  make ${MAKEFLAGS} scripts -j4
+  make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+    BSP_TOP="${BSP_TOP}" \
+    scripts -j4
   
   msg2 "编译 A733 设备树..."
   
