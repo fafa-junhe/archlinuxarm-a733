@@ -198,20 +198,21 @@ build() {
   find . -name "*.o" -delete 2>/dev/null || true
   find . -name "built-in.a" -delete 2>/dev/null || true
   
-  msg2 "编译内核和模块..."
+  msg2 "编译内核和模块（host tools 使用原生 x86_64）..."
   
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
     CC=aarch64-linux-gnu-gcc \
     CFLAGS="-O2 -march=armv8-a" \
     BSP_TOP="${BSP_TOP}" \
+    HOSTCC=gcc HOSTCXX=g++ \
     Image dtbs modules -j4
   
-  msg2 "编译 aarch64 主机工具（modpost 等）..."
+  msg2 "编译 aarch64 版本的 modpost 等工具（用于 DKMS）..."
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
     CC=aarch64-linux-gnu-gcc \
     CFLAGS="-O2 -march=armv8-a" \
     BSP_TOP="${BSP_TOP}" \
-    scripts -j4
+    scripts/mod/modpost -j4
   
   msg2 "编译 A733 设备树..."
   
@@ -306,13 +307,11 @@ _package-headers() {
   echo "Installing scripts..."
   cp -t "$builddir" -a scripts
   
-  echo "Copying aarch64 host tools (fixdep, modpost, etc)..."
-  for tool in scripts/basic/fixdep scripts/mod/modpost scripts/kconfig/conf; do
-    if [ -f "$srcdir/kernel/$tool" ]; then
-      chmod +x "$srcdir/kernel/$tool"
-      cp -f "$srcdir/kernel/$tool" "$builddir/$tool"
-    fi
-  done
+  echo "Copying aarch64 modpost for DKMS..."
+  if [ -f "$srcdir/kernel/scripts/mod/modpost" ]; then
+    chmod +x "$srcdir/kernel/scripts/mod/modpost"
+    cp -f "$srcdir/kernel/scripts/mod/modpost" "$builddir/scripts/mod/modpost"
+  fi
 
   
   mkdir -p "$builddir"/{fs/xfs,mm}
