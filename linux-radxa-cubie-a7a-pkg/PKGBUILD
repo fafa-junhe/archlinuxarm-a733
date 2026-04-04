@@ -207,12 +207,12 @@ build() {
     HOSTCC=gcc HOSTCXX=g++ \
     Image dtbs modules -j4
   
-  msg2 "编译 aarch64 版本的 modpost 等工具（用于 DKMS）..."
+  msg2 "编译 aarch64 主机工具（scripts 目录）..."
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
     CC=aarch64-linux-gnu-gcc \
     CFLAGS="-O2 -march=armv8-a" \
     BSP_TOP="${BSP_TOP}" \
-    scripts/mod/modpost -j4
+    scripts -j4
   
   msg2 "编译 A733 设备树..."
   
@@ -307,11 +307,8 @@ _package-headers() {
   echo "Installing scripts..."
   cp -t "$builddir" -a scripts
   
-  echo "Copying aarch64 modpost for DKMS..."
-  if [ -f "$srcdir/kernel/scripts/mod/modpost" ]; then
-    chmod +x "$srcdir/kernel/scripts/mod/modpost"
-    cp -f "$srcdir/kernel/scripts/mod/modpost" "$builddir/scripts/mod/modpost"
-  fi
+  echo "Copying aarch64 host tools for DKMS..."
+  cp -r "$srcdir/kernel/scripts/"* "$builddir/scripts/"
 
   
   mkdir -p "$builddir"/{fs/xfs,mm}

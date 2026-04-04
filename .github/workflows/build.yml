@@ -88,13 +88,7 @@ jobs:
             aarch64-linux-gnu-gcc \
             aarch64-linux-gnu-glibc \
             bc cpio dtc kmod python \
-            qemu-user-static binfmt-support
-        
-        # Ensure binfmt is registered for aarch64
-      - name: Register binfmt for aarch64
-        run: |
-          update-binfmts --enable qemu-aarch64 2>/dev/null || true
-          ls /proc/sys/fs/binfmt/
+            qemu-user-static
 
       # ── makepkg refuses to run as root; create an unprivileged user ───────
       - name: Create non-root build user
