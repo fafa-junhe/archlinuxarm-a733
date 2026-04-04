@@ -211,6 +211,9 @@ build() {
   
   make ${MAKEFLAGS} Image dtbs modules -j4
   
+  msg2 "编译 aarch64 主机工具（modpost 等）..."
+  make ${MAKEFLAGS} scripts -j4
+  
   msg2 "编译 A733 设备树..."
   
   if [ ! -f arch/arm64/boot/dts/allwinner/sun60i-a733-cubie-a7a.dtb ]; then
@@ -300,7 +303,15 @@ _package-headers() {
     localversion.* version
   install -Dt "$builddir/kernel" -m644 kernel/Makefile
   install -Dt "$builddir/arch/$KARCH" -m644 "arch/$KARCH/Makefile"
+  
+  echo "Installing scripts..."
   cp -t "$builddir" -a scripts
+  
+  echo "Replacing host tools with aarch64 cross-compiled versions..."
+  if [ -f "$srcdir/kernel/scripts/mod/modpost" ]; then
+    chmod +x "$srcdir/kernel/scripts/mod/modpost"
+    cp -f "$srcdir/kernel/scripts/mod/modpost" "$builddir/scripts/mod/modpost"
+  fi
 
   
   mkdir -p "$builddir"/{fs/xfs,mm}
