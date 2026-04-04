@@ -15,7 +15,7 @@ _bspname=allwinner-bsp-${_bspcommit_full}
 _devicename=allwinner-device-${_devicecommit_full}
 _kernelname=${pkgbase#linux}
 pkgver=5.15.147
-pkgrel=2
+pkgrel=3
 pkgdesc='Linux kernel for Allwinner A733 (Radxa Cubie A7A)'
 url="https://github.com/radxa/kernel"
 arch=(aarch64)
@@ -85,36 +85,44 @@ prepare() {
   cd kernel
   patch -p1 -i "${srcdir}/0002-kernel-bsp-integration.patch"
   
+  cd ..
   
-  ln -sf ../bsp bsp
-  ln -sf ../device-a733 device-a733
+  msg2 "复制 BSP 和设备目录到内核源码..."
+  cp -r bsp kernel/bsp
+  cp -r device-a733 kernel/device-a733
   
+  msg2 "修改内核 Makefile 添加 bsp_top 变量..."
+  if [ -f kernel/Makefile ]; then
+    if ! grep -q "^BSP_TOP" kernel/Makefile; then
+      sed -i '1i BSP_TOP := $(srcdir)/bsp' kernel/Makefile
+    fi
+  fi
   
   msg2 "修复 sound 驱动头文件路径..."
-  if [ -f bsp/drivers/sound/adapter/snd_sunxi_pcm_adapter.c ]; then
+  if [ -f kernel/bsp/drivers/sound/adapter/snd_sunxi_pcm_adapter.c ]; then
     sed -i 's|#include "snd_sunxi_log.h"|#include "../platform/snd_sunxi_log.h"|g' \
-        bsp/drivers/sound/adapter/snd_sunxi_pcm_adapter.c
+        kernel/bsp/drivers/sound/adapter/snd_sunxi_pcm_adapter.c
   fi
-  if [ -f bsp/drivers/sound/adapter/snd_sunxi_adapter.c ]; then
+  if [ -f kernel/bsp/drivers/sound/adapter/snd_sunxi_adapter.c ]; then
     sed -i 's|#include "snd_sunxi_log.h"|#include "../platform/snd_sunxi_log.h"|g' \
-        bsp/drivers/sound/adapter/snd_sunxi_adapter.c
+        kernel/bsp/drivers/sound/adapter/snd_sunxi_adapter.c
   fi
   
   
   msg2 "修复 gmac trace 头文件路径..."
-  if [ -f bsp/drivers/gmac/sunxi-gmac-trace.h ]; then
+  if [ -f kernel/bsp/drivers/gmac/sunxi-gmac-trace.h ]; then
     
-    sed -i '/^#undef TRACE_INCLUDE_PATH/d' bsp/drivers/gmac/sunxi-gmac-trace.h
-    sed -i '/^#define TRACE_INCLUDE_PATH/d' bsp/drivers/gmac/sunxi-gmac-trace.h
+    sed -i '/^#undef TRACE_INCLUDE_PATH/d' kernel/bsp/drivers/gmac/sunxi-gmac-trace.h
+    sed -i '/^#define TRACE_INCLUDE_PATH/d' kernel/bsp/drivers/gmac/sunxi-gmac-trace.h
     sed -i '/#define TRACE_INCLUDE_FILE/i #undef TRACE_INCLUDE_PATH\n#define TRACE_INCLUDE_PATH ../../bsp/drivers/gmac' \
-        bsp/drivers/gmac/sunxi-gmac-trace.h
+        kernel/bsp/drivers/gmac/sunxi-gmac-trace.h
   fi
   
   
   msg2 "修复 USB host 驱动头文件路径..."
-  if [ -f bsp/drivers/usb/host/sunxi-hci.h ]; then
+  if [ -f kernel/bsp/drivers/usb/host/sunxi-hci.h ]; then
     sed -i 's|#include <../sunxi_usb/include/sunxi_usb_debug.h>|#include "../../bsp/drivers/usb/sunxi_usb/include/sunxi_usb_debug.h"|g' \
-        bsp/drivers/usb/host/sunxi-hci.h
+        kernel/bsp/drivers/usb/host/sunxi-hci.h
   fi
   
   
@@ -151,7 +159,7 @@ prepare() {
   echo "${pkgbase#linux}" > localversion.20-pkgname
   
   msg2 "配置内核..."
-  export BSP_TOP="${srcdir}/bsp/"
+  export BSP_TOP="${srcdir}/kernel/bsp"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
   
   
@@ -188,7 +196,7 @@ build() {
   cd "${srcdir}/kernel"
   
   export ARCH=arm64
-  export BSP_TOP="${srcdir}/bsp/"
+  export BSP_TOP="${srcdir}/kernel/bsp"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
   
   

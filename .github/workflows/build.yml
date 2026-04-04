@@ -295,92 +295,35 @@ jobs:
           if-no-files-found: error
 
   # ============================================================================
-  # Job 4 — Create pacman repository database
-  #
-  #   Creates a pacman repository database using repo-add.
-  # ============================================================================
-  create-repo:
-    name: "Create Pacman Repository"
-    needs: [build-kernel, build-uboot, build-system-config]
-    runs-on: ubuntu-latest
-
-    container:
-      image: archlinux:latest
-
-    defaults:
-      run:
-        shell: bash
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure pacman for CI
-        run: |
-          sed -i 's/SigLevel    = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
-          sed -i 's/SigLevel = Required DatabaseOptional/SigLevel = Never/' /etc/pacman.conf
-
-      - name: Install required tools
-        run: pacman -Sy --noconfirm
-
-      - name: Download kernel packages
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-kernel-packages
-          path: packages/
-
-      - name: Download U-Boot packages
-        uses: actions/download-artifact@v4
-        with:
-          name: uboot-packages
-          path: packages/
-
-      - name: Download system-config packages
-        uses: actions/download-artifact@v4
-        with:
-          name: system-config-packages
-          path: packages/
-
-      - name: List packages to be released
-        run: ls -lh packages/
-
-      - name: Create pacman repository database
-        run: |
-          REPO_NAME="radxa-cubie-a7a"
-          DB_PATH="${GITHUB_WORKSPACE}/${REPO_NAME}.db.tar.gz"
-          
-          echo "Creating repository database with packages..."
-          repo-add --new "${DB_PATH}" packages/*.pkg.tar.zst
-          
-          echo "--- Repository database created ---"
-          ls -lh "${GITHUB_WORKSPACE}"/*.db.tar.gz
-
-      - name: Upload repository database artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pacman-repo-db
-          path: |
-            packages/*.pkg.tar.zst
-            *.db.tar.gz
-
-  # ============================================================================
   # Job 4 — Attach packages to GitHub Release
   #
-  #   Uploads packages and repository database to GitHub Release.
+  #   Uploads all packages to GitHub Release.
   #   Creates release if it doesn't exist.
   # ============================================================================
   release:
     name: "Upload Release Assets"
-    needs: [create-repo]
+    needs: [build-kernel, build-uboot, build-system-config]
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Download all packages and repo database
+      - name: Download kernel packages
         uses: actions/download-artifact@v4
         with:
-          name: pacman-repo-db
+          name: linux-kernel-packages
+          path: release-assets/
+
+      - name: Download U-Boot packages
+        uses: actions/download-artifact@v4
+        with:
+          name: uboot-packages
+          path: release-assets/
+
+      - name: Download system-config packages
+        uses: actions/download-artifact@v4
+        with:
+          name: system-config-packages
           path: release-assets/
 
       - name: List release assets
@@ -402,23 +345,24 @@ jobs:
           echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
           echo "Release tag: ${TAG_NAME}"
 
-      - name: Attach packages and repository database to GitHub Release
+      - name: Attach packages to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.release_info.outputs.TAG_NAME }}
           name: "Release ${{ steps.release_info.outputs.TAG_NAME }}"
           body: |
-            Automated release with pacman repository database.
+            Automated release with Arch Linux ARM packages for Radxa Cubie A7A.
+
+            ## Packages
+            - linux-a733: Linux kernel for A733
+            - linux-a733-headers: Kernel headers
+            - uboot-radxa-cubie-a7a: U-Boot bootloader
+            - radxa-system-config-allwinner: System configuration
 
             ## Installation
-            Add to your /etc/pacman.conf:
-            ```
-            [radxa-cubie-a7a]
-            Server=$repoUrl/$arch
-            ```
+            Download and install packages manually with:
+            `pacman -U <package>.pkg.tar.zst`
 
-            Then run: pacman -Syu
           files: |
             release-assets/*.pkg.tar.zst
-            release-assets/*.db.tar.gz
           fail_on_unmatched_files: false
