@@ -188,10 +188,13 @@ build() {
   export CC=aarch64-linux-gnu-gcc
   export HOSTCC=aarch64-linux-gnu-gcc
   export HOSTCXX=aarch64-linux-gnu-g++
+  export CFLAGS=""
+  export CXXFLAGS=""
+  export LDFLAGS=""
   
   
   msg2 "清理之前的编译产物..."
-  make clean ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc || true
+  make clean ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- || true
   
   
   find . -name "*.o" -delete 2>/dev/null || true
@@ -202,6 +205,7 @@ build() {
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
     CC=aarch64-linux-gnu-gcc \
     HOSTCC=aarch64-linux-gnu-gcc HOSTCXX=aarch64-linux-gnu-g++ \
+    CFLAGS="" CXXFLAGS="" LDFLAGS="" \
     BSP_TOP="${BSP_TOP}" \
     Image dtbs modules -j4
   
@@ -209,6 +213,7 @@ build() {
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
     CC=aarch64-linux-gnu-gcc \
     HOSTCC=aarch64-linux-gnu-gcc HOSTCXX=aarch64-linux-gnu-g++ \
+    CFLAGS="" CXXFLAGS="" LDFLAGS="" \
     BSP_TOP="${BSP_TOP}" \
     scripts -j4
   
