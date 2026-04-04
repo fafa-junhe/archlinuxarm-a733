@@ -153,10 +153,10 @@ prepare() {
   
   msg2 "配置内核..."
   cd kernel
-  export BSP_TOP="${srcdir}/kernel/bsp"
+  export BSP_TOP="${srcdir}/kernel/bsp/"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
   
-  sed -i "1i BSP_TOP := ${BSP_TOP}" Makefile
+  sed -i "1i BSP_TOP := ${BSP_TOP}/" Makefile
   
   msg2 "复制配置文件..."
   cp "${srcdir}/config" .config
@@ -191,7 +191,7 @@ build() {
   cd "${srcdir}/kernel"
   
   export ARCH=arm64
-  export BSP_TOP="${srcdir}/kernel/bsp"
+  export BSP_TOP="${srcdir}/kernel/bsp/"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
   export CROSS_COMPILE=aarch64-linux-gnu-
   export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
