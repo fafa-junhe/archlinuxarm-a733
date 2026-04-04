@@ -108,13 +108,14 @@ jobs:
         run: |
           sed -i 's/^CARCH=.*/CARCH=aarch64/' /etc/makepkg.conf
           
-          sudo -u builder -H \
+          su builder -c '
             env \
               ARCH=arm64 \
               CROSS_COMPILE=aarch64-linux-gnu- \
               QEMU_LD_PREFIX=/usr/aarch64-linux-gnu \
-              DTC_FLAGS="-@"
-            makepkg -s --noconfirm --noprogressbar --ignorearch
+              DTC_FLAGS="-@" \
+              makepkg -s --noconfirm --noprogressbar --ignorearch
+          '
 
       # ── Collect *.pkg.tar.zst artifacts ───────────────────────────────────
       - name: Upload kernel package artifacts
