@@ -185,13 +185,13 @@ build() {
   export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
   export BSP_TOP="${srcdir}/kernel/bsp/"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
-  
-  export HOSTCC=gcc
-  export HOSTCXX=g++
+  export CC=aarch64-linux-gnu-gcc
+  export HOSTCC=aarch64-linux-gnu-gcc
+  export HOSTCXX=aarch64-linux-gnu-g++
   
   
   msg2 "清理之前的编译产物..."
-  make clean ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- || true
+  make clean ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CC=aarch64-linux-gnu-gcc || true
   
   
   find . -name "*.o" -delete 2>/dev/null || true
@@ -200,13 +200,15 @@ build() {
   msg2 "编译内核和模块..."
   
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
-    HOSTCC=gcc HOSTCXX=g++ \
+    CC=aarch64-linux-gnu-gcc \
+    HOSTCC=aarch64-linux-gnu-gcc HOSTCXX=aarch64-linux-gnu-g++ \
     BSP_TOP="${BSP_TOP}" \
     Image dtbs modules -j4
   
   msg2 "编译 aarch64 主机工具（modpost 等）..."
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
-    HOSTCC=gcc HOSTCXX=g++ \
+    CC=aarch64-linux-gnu-gcc \
+    HOSTCC=aarch64-linux-gnu-gcc HOSTCXX=aarch64-linux-gnu-g++ \
     BSP_TOP="${BSP_TOP}" \
     scripts -j4
   
@@ -303,11 +305,13 @@ _package-headers() {
   echo "Installing scripts..."
   cp -t "$builddir" -a scripts
   
-  echo "Replacing host tools with aarch64 cross-compiled versions..."
-  if [ -f "$srcdir/kernel/scripts/mod/modpost" ]; then
-    chmod +x "$srcdir/kernel/scripts/mod/modpost"
-    cp -f "$srcdir/kernel/scripts/mod/modpost" "$builddir/scripts/mod/modpost"
-  fi
+  echo "Copying aarch64 host tools (fixdep, modpost, etc)..."
+  for tool in scripts/basic/fixdep scripts/mod/modpost scripts/kconfig/conf; do
+    if [ -f "$srcdir/kernel/$tool" ]; then
+      chmod +x "$srcdir/kernel/$tool"
+      cp -f "$srcdir/kernel/$tool" "$builddir/$tool"
+    fi
+  done
 
   
   mkdir -p "$builddir"/{fs/xfs,mm}
