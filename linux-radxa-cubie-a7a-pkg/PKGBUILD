@@ -91,6 +91,10 @@ prepare() {
   cp -r bsp kernel/bsp
   cp -r device-a733 kernel/device-a733
   
+  mkdir -p kernel/bsp/include
+  echo "#define AW_BSP_VERSION \"${pkgver}-${pkgrel}-ARCH, Arch Linux ARM\"" \
+      > kernel/bsp/include/sunxi-autogen.h
+  
   msg2 "修复 sound 驱动头文件路径..."
   if [ -f kernel/bsp/drivers/sound/adapter/snd_sunxi_pcm_adapter.c ]; then
     sed -i 's|#include "snd_sunxi_log.h"|#include "../platform/snd_sunxi_log.h"|g' \
@@ -143,10 +147,6 @@ prepare() {
   fi
   
   
-  mkdir -p ../bsp/include
-  echo "#define AW_BSP_VERSION \"${pkgver}-${pkgrel}-ARCH, Arch Linux ARM\"" \
-      > ../bsp/include/sunxi-autogen.h
-  
   echo "Setting version..."
   echo "-$pkgrel" > localversion.10-pkgrel
   echo "${pkgbase#linux}" > localversion.20-pkgname
@@ -191,10 +191,13 @@ build() {
   cd "${srcdir}/kernel"
   
   export ARCH=arm64
-  export BSP_TOP="${srcdir}/kernel/bsp/"
-  export LICHEE_KERN_DIR="${srcdir}/kernel/"
   export CROSS_COMPILE=aarch64-linux-gnu-
   export QEMU_LD_PREFIX=/usr/aarch64-linux-gnu
+  export BSP_TOP="${srcdir}/kernel/bsp/"
+  export LICHEE_KERN_DIR="${srcdir}/kernel/"
+  
+  export HOSTCC=gcc
+  export HOSTCXX=g++
   
   
   msg2 "清理之前的编译产物..."
@@ -207,11 +210,13 @@ build() {
   msg2 "编译内核和模块..."
   
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+    HOSTCC=gcc HOSTCXX=g++ \
     BSP_TOP="${BSP_TOP}" \
     Image dtbs modules -j4
   
   msg2 "编译 aarch64 主机工具（modpost 等）..."
   make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+    HOSTCC=gcc HOSTCXX=g++ \
     BSP_TOP="${BSP_TOP}" \
     scripts -j4
   
