@@ -147,28 +147,14 @@ prepare() {
   fi
   
   
-  echo "Setting version..."
-  echo "-$pkgrel" > localversion.10-pkgrel
-  echo "${pkgbase#linux}" > localversion.20-pkgname
-  
   msg2 "配置内核..."
   cd kernel
   export BSP_TOP="${srcdir}/kernel/bsp/"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
-  
   sed -i "1i BSP_TOP := ${BSP_TOP}/" Makefile
   
   msg2 "复制配置文件..."
   cp "${srcdir}/config" .config
-  
-  
-  msg2 "清理旧编译文件..."
-  make mrproper ARCH=arm64 || true
-  make clean ARCH=arm64 || true
-  
-  
-  cp "${srcdir}/config" .config
-  
   
   msg2 "调整配置以支持本机编译..."
   scripts/config --disable CONFIG_DRM_NOUVEAU
@@ -180,6 +166,10 @@ prepare() {
   scripts/config --enable CONFIG_SECURITYFS
   scripts/config --enable CONFIG_SECURITY_LANDLOCK
   scripts/config --enable CONFIG_LANDLOCK
+  
+  echo "Setting version..."
+  echo "-$pkgrel" > localversion.10-pkgrel
+  echo "${pkgbase#linux}" > localversion.20-pkgname
   
   make ARCH=arm64 BSP_TOP="${BSP_TOP}" olddefconfig
   
