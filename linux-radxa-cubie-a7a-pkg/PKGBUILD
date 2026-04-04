@@ -159,6 +159,7 @@ prepare() {
   echo "${pkgbase#linux}" > localversion.20-pkgname
   
   msg2 "配置内核..."
+  cd kernel
   export BSP_TOP="${srcdir}/kernel/bsp"
   export LICHEE_KERN_DIR="${srcdir}/kernel/"
   
